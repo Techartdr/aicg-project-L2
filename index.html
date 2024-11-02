@@ -1,0 +1,36 @@
+<!doctype html>
+
+<html>
+    <head>
+        <title>Ray Marching - Music Visualizer</title>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="../style.css" />
+    </head>
+    <body class="open-sans-normal">
+        <div>
+            <h1 class="open-sans-black">Lecture 02</h1>
+            <h2 class="open-sans-bold">Interactive Ray Marching Music Visualizer</h2>
+            <h3 class="open-sans-bold">Project</h3>
+        </div>
+        <!-- <ul style="display: flex; justify-content: space-between">
+            <li><a href="../example07/index.html">Prev</a></li>
+            <li><a href="../example09/index.html">Next</a></li>
+        </ul> -->
+        <p style="text-align: center; font-size: 2rem" class="open-sans-bold">
+            <span id="fps">60</span> <span>FPS</span>
+        </p>
+        <div style="width: 100%">
+            <canvas
+                id="canvas"
+                width="800"
+                height="600"
+                style="width: 100%; margin: 0 auto"
+            ></canvas>
+        </div>
+
+        <script src="script.js" type="module"></script>
+        <script id="vert" src="shader.vert" type="x-shader/x-vertex"></script>
+        <script id="frag" src="shader.frag" type="x-shader/x-fragment"></script>
+    </body>
+</html>
