@@ -1,41 +1,33 @@
-// Fonction pour détecter si on est sur un appareil mobile
 function isMobileDevice() {
   return /Mobi|Android/i.test(navigator.userAgent);
 }
 
-// Fonction pour afficher les instructions adaptées
 function displayInstructions() {
   const instructionsText = document.getElementById('instructions-text');
 
   if (isMobileDevice()) {
     instructionsText.innerHTML = `
-      <strong>Bienvenue !</strong><br><br>
-      <ul>
-        <li>Glissez pour faire pivoter la vue.</li>
-        <li>Pincez pour zoomer et dézoomer.</li>
-        <li>Utilisez le microphone pour animer la scène en fonction des sons.</li>
-      </ul>
+      <strong>Welcome to Dynamic World</strong><br><br>
+        <p>Swipe to rotate view</p>
+        <p>Pinch to zoom in and out</p>
+        <p>The microphone influences the animation and colors of the scene based on the sounds</p><br>
+        <p>Switch the phone to landscape to get a better view!</p>
     `;
   } else {
     instructionsText.innerHTML = `
-      <strong>Bienvenue !</strong><br><br>
-      <ul>
-        <li>Utilisez les touches <- Q et D -> pour vous déplacer dans la scène.</li>
-        <li>Le microphone influence l'animation de la scène en fonction des sons.</li>
-      </ul>
+      <strong>Welcome to Dynamic World</strong><br><br>
+        <p>Use the Q (Left) and D (Right) keys to rotate the scene view</p>
+        <p>The microphone influences the animation and colors of the scene based on the sounds</p>
     `;
   }
 
   document.getElementById('instructions').style.display = 'flex';
 }
 
-// Fonction pour fermer la boîte d'instructions
 function closeInstructions() {
-  console.log("TESTZ7GDeiufhioqzj");
   document.getElementById('instructions').style.display = 'none';
 }
 
-// Appeler displayInstructions lors du chargement de la page
 window.addEventListener('load', displayInstructions);
 
 
@@ -120,6 +112,25 @@ function resizeCanvasToDisplaySize(canvas) {
 }
 
 async function main() {
+  const fps = document.getElementById("fps");
+
+  const time = {
+    current_t: Date.now(),
+    dts: [1 / 60],
+    t: 0,
+
+    dt: () => time.dts[0],
+    update: () => {
+      const new_t = Date.now();
+      time.dts = [(new_t - time.current_t) / 1_000, ...time.dts].slice(0, 10);
+      time.t += time.dt();
+      time.current_t = new_t;
+
+      const dt = time.dts.reduce((a, dt) => a + dt, 0) / time.dts.length;
+      fps.innerHTML = `${Math.round(1 / dt, 2)}`;
+    },
+  };
+
   document.getElementById('close-help').addEventListener('click', () => closeInstructions());
 
   const canvas = document.getElementById("canvas");
@@ -172,7 +183,6 @@ async function main() {
 
   let startTime = Date.now() / 1000;
 
-  // Variables de contrôle de la caméra
   let camera = {
     position: { x: 0, y: 3, z: -8 },
     rotation: { x: 0, y: 0 },
@@ -182,7 +192,6 @@ async function main() {
   let isDragging = false;
   let lastMouseX, lastMouseY;
 
-  // Écoute des événements de la souris pour la rotation de la caméra
   canvas.addEventListener('mousedown', (e) => {
     isDragging = true;
     lastMouseX = e.clientX;
@@ -208,13 +217,11 @@ async function main() {
     isDragging = false;
   });
 
-  // Écoute de la molette pour le zoom
   canvas.addEventListener('wheel', (e) => {
     camera.zoom += e.deltaY * 0.001;
-    camera.zoom = Math.min(Math.max(camera.zoom, 1.0), 5.0); // Limite du zoom
+    camera.zoom = Math.min(Math.max(camera.zoom, 1.0), 5.0);
   });
 
-  // Déplacement avec ZQSD
   let keys = {};
   window.addEventListener('keydown', (e) => { keys[e.key] = true; });
   window.addEventListener('keyup', (e) => { keys[e.key] = false; });
@@ -270,7 +277,6 @@ async function main() {
     gl.uniform1f(u_amplitude, amplitude);
     gl.uniform1f(u_frequency, frequency);
 
-    // Calcul de la direction et position de la caméra
     updateCameraPosition();
     gl.uniform4f(
       u_mouse,
@@ -283,6 +289,7 @@ async function main() {
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
 
+    time.update();
     requestAnimationFrame(render);
   }
   requestAnimationFrame(render);

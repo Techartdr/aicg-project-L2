@@ -1,18 +1,22 @@
 <!doctype html>
 <html>
 <head>
-    <title>Ray Marching - Dynamic Maze</title>
+    <title>Ray Marching - Dynamic world</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link href="style.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../style.css"/>
 </head>
 <body>
     <div id="instructions" class="instructions-overlay">
         <div class="instructions-content">
           <p id="instructions-text"></p>
-          <button id="close-help">Commencer</button>
+          <button id="close-help">Start!</button>
         </div>
     </div>
+
+    <p style="text-align: center; font-size: 2rem" class="open-sans-bold" id="fps-bloc">
+        <span id="fps">60</span> <span>FPS</span>
+    </p>
 
     <canvas id="canvas"></canvas>
 
