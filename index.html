@@ -1,20 +1,22 @@
 <!doctype html>
 <html>
 <head>
-    <title>Ray Marching - Dynamic world</title>
+    <title>Ray Marching - Dynamic World</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!--<link rel="stylesheet" href="../style.css"/>-->
     <style>
+    /* Styles de base pour supprimer les marges et masquer le défilement */
     body {
         margin: 0;
         overflow: hidden;
     }
 
+    /* Styles du canvas pour le rendre visible en plein écran */
     #canvas {
         display: block;
     }
 
+    /* Bloc d'affichage des FPS en haut à gauche */
     #fps-bloc {
         position: fixed;
         margin-top: 10px;
@@ -23,6 +25,7 @@
         z-index: 1000;
     }
 
+    /* Styles pour la superposition d'instructions initiales */
     .instructions-overlay {
         position: fixed;
         top: 0;
@@ -38,6 +41,7 @@
         z-index: 1000;
     }
 
+    /* Contenu de la boîte d'instructions */
     .instructions-content {
         text-align: center;
         max-width: 80%;
@@ -46,11 +50,7 @@
         border-radius: 8px;
     }
 
-    .instructions-content p {
-        font-size: 1.2em;
-        margin-bottom: 20px;
-    }
-
+    /* Styles du bouton dans la boîte d'instructions */
     .instructions-content button {
         padding: 10px 20px;
         font-size: 1em;
@@ -63,6 +63,7 @@
     </style>
 </head>
 <body>
+    <!-- Superposition d'instructions affichée au chargement -->
     <div id="instructions" class="instructions-overlay">
         <div class="instructions-content">
           <p id="instructions-text"></p>
@@ -70,12 +71,15 @@
         </div>
     </div>
 
+    <!-- Affichage des FPS au centre de l'écran -->
     <p style="text-align: center; font-size: 2rem" class="open-sans-bold" id="fps-bloc">
         <span id="fps">60</span> <span>FPS</span>
     </p>
 
+    <!-- Canvas pour le rendu WebGL -->
     <canvas id="canvas"></canvas>
 
+    <!-- Scripts JavaScript -->
     <script src="script.js" type="module"></script>
     <script id="vert" src="shader.vert" type="x-shader/x-vertex"></script>
     <script id="frag" src="shader.frag" type="x-shader/x-fragment"></script>

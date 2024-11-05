@@ -1,66 +1,77 @@
+// Fonction pour détecter si l'utilisateur est sur un appareil mobile
 function isMobileDevice() {
   return /Mobi|Android/i.test(navigator.userAgent);
 }
 
+// Affiche les instructions au chargement de la page
 function displayInstructions() {
   const instructionsText = document.getElementById('instructions-text');
 
+  // Instructions spécifiques en fonction du type de périphérique (mobile ou bureau)
   if (isMobileDevice()) {
     instructionsText.innerHTML = `
       <strong>Welcome to Dynamic World</strong><br><br>
-        <p>Swipe to rotate view</p>
-        <p>Pinch to zoom in and out</p>
-        <p>The microphone influences the animation and colors of the scene based on the sounds</p><br>
-        <p>Switch the phone to landscape to get a better view!</p>
+      <p>Swipe to rotate view</p>
+      <p>Pinch to zoom in and out</p>
+      <p>The microphone influences the animation and colors of the scene based on the sounds</p><br>
+      <p>Switch the phone to landscape to get a better view!</p>
     `;
   } else {
     instructionsText.innerHTML = `
       <strong>Welcome to Dynamic World</strong><br><br>
-        <p>Use the Q (Left) and D (Right) keys to rotate the scene view</p>
-        <p>The microphone influences the animation and colors of the scene based on the sounds</p>
+      <p>Use the Q (Left) and D (Right) keys to rotate the scene view</p>
+      <p>The microphone influences the animation and colors of the scene based on the sounds</p>
     `;
   }
 
   document.getElementById('instructions').style.display = 'flex';
 }
 
+// Cache la superposition d'instructions après avoir cliqué sur le bouton
 function closeInstructions() {
   document.getElementById('instructions').style.display = 'none';
 }
 
 window.addEventListener('load', displayInstructions);
 
-
+// Charge un shader (vertex ou fragment) depuis son URL
 async function readShader(id) {
   const req = await fetch(document.getElementById(id).src);
   return await req.text();
 }
 
+// Crée un shader WebGL à partir d'une source
 function createShader(gl, type, src) {
   let shader = gl.createShader(type);
   gl.shaderSource(shader, src);
   gl.compileShader(shader);
 
+  // Vérifie si la compilation a réussi
   let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
   if (success) return shader;
 
+  // Affiche une erreur si la compilation échoue
   console.error("Could not compile WebGL Shader", gl.getShaderInfoLog(shader));
   gl.deleteShader(shader);
 }
 
+// Crée et lie un programme WebGL à partir de shaders vertex et fragment
 function createProgram(gl, vertShader, fragShader) {
   let program = gl.createProgram();
   gl.attachShader(program, vertShader);
   gl.attachShader(program, fragShader);
   gl.linkProgram(program);
 
+  // Vérifie si le lien a réussi
   let success = gl.getProgramParameter(program, gl.LINK_STATUS);
   if (success) return program;
 
+  // Affiche une erreur si le lien échoue
   console.error("Could not Link WebGL Program", gl.getProgramInfoLog(program));
   gl.deleteProgram(program);
 }
 
+// Fonction pour obtenir les données du microphone
 async function getMicrophoneInput() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -76,12 +87,14 @@ async function getMicrophoneInput() {
     function getAmplitudeAndFrequency() {
       analyser.getByteFrequencyData(dataArray);
 
+      // Calcul de l'amplitude moyenne
       let sum = 0;
       for (let i = 0; i < dataArray.length; i++) {
         sum += dataArray[i];
       }
       const amplitude = sum / dataArray.length / 128.0;
 
+      // Calcul de la fréquence dominante
       let maxVal = 0;
       let dominantFrequency = 0;
       for (let i = 0; i < dataArray.length; i++) {
@@ -102,6 +115,7 @@ async function getMicrophoneInput() {
   }
 }
 
+// Adapte la taille du canvas à la taille de la fenêtre
 function resizeCanvasToDisplaySize(canvas) {
   const width = window.innerWidth;
   const height = window.innerHeight;
@@ -111,9 +125,11 @@ function resizeCanvasToDisplaySize(canvas) {
   }
 }
 
+// Fonction principale pour initialiser le rendu et la logique de l'animation
 async function main() {
   const fps = document.getElementById("fps");
 
+  // Géstion du temps et le calcul des FPS
   const time = {
     current_t: Date.now(),
     dts: [1 / 60],
@@ -133,6 +149,7 @@ async function main() {
 
   document.getElementById('close-help').addEventListener('click', () => closeInstructions());
 
+  // Initialisation du WebGL et configuration du canvas
   const canvas = document.getElementById("canvas");
   const gl = canvas.getContext("webgl2");
   if (!gl) alert("Could not initialize WebGL Context.");
@@ -140,10 +157,12 @@ async function main() {
   resizeCanvasToDisplaySize(canvas);
   window.addEventListener('resize', () => resizeCanvasToDisplaySize(canvas));
 
+  // Chargement et compilation des shaders
   const vertShader = createShader(gl, gl.VERTEX_SHADER, await readShader("vert"));
   const fragShader = createShader(gl, gl.FRAGMENT_SHADER, await readShader("frag"));
   const program = createProgram(gl, vertShader, fragShader);
 
+  // Attributs et uniformes du programme WebGL
   const a_position = gl.getAttribLocation(program, "a_position");
   const a_uv = gl.getAttribLocation(program, "a_uv");
 
@@ -153,6 +172,7 @@ async function main() {
   const u_amplitude = gl.getUniformLocation(program, "iAmplitude");
   const u_frequency = gl.getUniformLocation(program, "iFrequency");
 
+  // Données de géométrie du quadrilatère couvrant l'écran
   const data = new Float32Array([
     -1.0, -1.0, 0.0, 0.0,
     1.0, -1.0, 1.0, 0.0,
@@ -162,6 +182,7 @@ async function main() {
 
   const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
+  // Configuration des buffers de données pour le rendu WebGL
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
@@ -183,6 +204,7 @@ async function main() {
 
   let startTime = Date.now() / 1000;
 
+  // Caméra avec position et zoom
   let camera = {
     position: { x: 0, y: 3, z: -8 },
     rotation: { x: 0, y: 0 },
@@ -192,6 +214,7 @@ async function main() {
   let isDragging = false;
   let lastMouseX, lastMouseY;
 
+  // Événements pour faire pivoter la caméra
   canvas.addEventListener('mousedown', (e) => {
     isDragging = true;
     lastMouseX = e.clientX;
@@ -222,13 +245,16 @@ async function main() {
     camera.zoom = Math.min(Math.max(camera.zoom, 1.0), 5.0);
   });
 
+  // Gestion des touches du clavier
   let keys = {};
   window.addEventListener('keydown', (e) => { keys[e.key] = true; });
   window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
+  // Obtenir les données du microphone pour l'animation audio-réactive
   const micInput = await getMicrophoneInput();
   if (!micInput) return;
 
+  // Met à jour la position de la caméra en fonction des touches
   function updateCameraPosition() {
     const speed = 5;
     const forward = {
@@ -240,14 +266,6 @@ async function main() {
       z: -Math.sin(camera.rotation.x) * speed
     };
 
-    /*if (keys['w'] || keys['z']) {
-      camera.position.z += forward.x;
-      camera.position.z += forward.z;
-    }*/
-    /*if (keys['s']) {
-      camera.position.x -= forward.x;
-      camera.position.z -= forward.z;
-    }*/
     if (keys['a'] || keys['q']) {
       camera.position.x -= right.x;
       camera.position.z -= right.z;
@@ -258,10 +276,12 @@ async function main() {
     }
   }
 
+  // Fonction de rendu, appelée à chaque frame
   function render() {
     let currentTime = Date.now() / 1000;
     let elapsedTime = currentTime - startTime;
 
+    // Redimensionne le canvas si la fenêtre change
     resizeCanvasToDisplaySize(canvas);
 
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
