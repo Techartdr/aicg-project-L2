@@ -128,78 +128,85 @@ async function main() {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
   let startTime = Date.now() / 1000;
-  let mouse = { x: 0, y: 0, clicked: false };
-  let pinchStartDist = 0;
-  let zoom = 1.5;
 
-  let isTouching = false;
+  // Variables de contrôle de la caméra
+  let camera = {
+    position: { x: 0, y: 3, z: -8 },
+    rotation: { x: 0, y: 0 },
+    zoom: 1.5
+  };
+  
+  let isDragging = false;
+  let lastMouseX, lastMouseY;
 
-  function calculatePinchDistance(e) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  // Gestion des événements tactiles
-  canvas.addEventListener('touchstart', (e) => {
-    isTouching = true;
-    if (e.touches.length === 1) {
-      mouse.clicked = true;
-      mouse.x = e.touches[0].clientX / canvas.width;
-      mouse.y = 1.0 - e.touches[0].clientY / canvas.height;
-    } else if (e.touches.length === 2) {
-      pinchStartDist = calculatePinchDistance(e);
-    }
-  });
-
-  canvas.addEventListener('touchmove', (e) => {
-    if (!isTouching) return;
-
-    if (e.touches.length === 1) {
-      const deltaX = (e.touches[0].clientX / canvas.width) - mouse.x;
-      const deltaY = (1.0 - e.touches[0].clientY / canvas.height) - mouse.y;
-      mouse.x += deltaX;
-      mouse.y += deltaY;
-    } else if (e.touches.length === 2) {
-      const pinchDist = calculatePinchDistance(e);
-      const pinchDelta = pinchDist - pinchStartDist;
-      zoom += pinchDelta * 0.005;
-      zoom = Math.min(Math.max(zoom, 1.0), 5.0);
-      pinchStartDist = pinchDist;
-    }
-  });
-
-  canvas.addEventListener('touchend', (e) => {
-    if (e.touches.length === 0) {
-      mouse.clicked = false;
-      isTouching = false;
-    }
-  });
-
-  // Gestion des événements de souris pour PC uniquement
-  canvas.addEventListener('mousemove', (e) => {
-    if (!isTouching && mouse.clicked) {
-      mouse.x = e.clientX / canvas.width;
-      mouse.y = 1.0 - e.clientY / canvas.height;
-    }
-  });
-
+  // Écoute des événements de la souris pour la rotation de la caméra
   canvas.addEventListener('mousedown', (e) => {
-    if (!isTouching) {
-      mouse.clicked = true;
-      mouse.x = e.clientX / canvas.width;
-      mouse.y = 1.0 - e.clientY / canvas.height;
+    isDragging = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      const deltaX = e.clientX - lastMouseX;
+      const deltaY = e.clientY - lastMouseY;
+      camera.rotation.x += deltaX * 0.005;
+      camera.rotation.y += deltaY * 0.005;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
     }
   });
 
-  canvas.addEventListener('mouseup', (e) => {
-    if (!isTouching) {
-      mouse.clicked = false;
-    }
+  canvas.addEventListener('mouseup', () => {
+    isDragging = false;
   });
+
+  canvas.addEventListener('mouseleave', () => {
+    isDragging = false;
+  });
+
+  // Écoute de la molette pour le zoom
+  canvas.addEventListener('wheel', (e) => {
+    camera.zoom += e.deltaY * 0.001;
+    camera.zoom = Math.min(Math.max(camera.zoom, 1.0), 5.0); // Limite du zoom
+  });
+
+  // Déplacement avec ZQSD
+  let keys = {};
+  window.addEventListener('keydown', (e) => { keys[e.key] = true; });
+  window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
   const micInput = await getMicrophoneInput();
   if (!micInput) return;
+
+  function updateCameraPosition() {
+    const speed = 5;
+    /*const forward = {
+      x: Math.sin(camera.rotation.x) * speed,
+      z: Math.cos(camera.rotation.x) * speed
+    };*/
+    const right = {
+      x: Math.cos(camera.rotation.x) * speed,
+      z: -Math.sin(camera.rotation.x) * speed
+    };
+
+    /*if (keys['w'] || keys['z']) {
+      camera.position.z += forward.x;
+      camera.position.z += forward.z;
+    }*/
+    /*if (keys['s']) {
+      camera.position.x -= forward.x;
+      camera.position.z -= forward.z;
+    }*/
+    if (keys['a'] || keys['q']) {
+      camera.position.x -= right.x;
+      camera.position.z -= right.z;
+    }
+    if (keys['d']) {
+      camera.position.x += right.x;
+      camera.position.z += right.z;
+    }
+  }
 
   function render() {
     let currentTime = Date.now() / 1000;
@@ -220,7 +227,16 @@ async function main() {
     gl.uniform1f(u_amplitude, amplitude);
     gl.uniform1f(u_frequency, frequency);
 
-    gl.uniform4f(u_mouse, mouse.x * canvas.width, mouse.y * canvas.height, 0.0, zoom);
+    // Calcul de la direction et position de la caméra
+    updateCameraPosition();
+    gl.uniform4f(
+      u_mouse,
+      camera.position.x,
+      camera.position.y,
+      camera.position.z,
+      camera.zoom
+    );
+
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
 

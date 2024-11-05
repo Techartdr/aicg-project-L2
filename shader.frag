@@ -4,8 +4,8 @@ precision highp float;
 uniform vec3 iResolution;
 uniform float iTime;
 uniform vec4 iMouse;
-uniform float iAmplitude; // Amplitude sonore
-uniform float iFrequency; // Fréquence dominante
+uniform float iAmplitude; // Amplitude sonore pour contrôler la luminosité
+uniform float iFrequency; // Fréquence dominante pour contrôler la teinte
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -25,8 +25,8 @@ float sdSphere(vec3 p, float s) {
 }
 
 float map(vec3 p) {
-    float scale = 1.0 + 0.3 * iAmplitude; // Pulsation de la sphère
-    vec3 spherePos = vec3(sin(iTime) * 3.0, 0.0, 0.0);
+    float scale = 1.0 + 0.6 * iAmplitude; // Pulsation de la sphère avec amplitude
+    vec3 spherePos = vec3(sin(iTime) * 3.0, cos(iTime * 0.5) * 3.0 * iFrequency, 0.0); // Position influencée par la fréquence
     float sphere = sdSphere(p - spherePos, scale);
 
     vec3 q = p;
@@ -77,11 +77,17 @@ mat3 camera(vec3 ro, vec3 ta, float cr) {
     return mat3(cu, normalize(cross(cw, cu)), cw);
 }
 
+// Fonction de Fresnel pour accentuer les bords
+float fresnelEffect(vec3 viewDir, vec3 normal) {
+    return pow(1.0 - max(dot(viewDir, normal), 0.0), 3.0);
+}
+
 void main() {
     vec2 uv = (v_uv * 2.0 - 1.0) * vec2(iResolution.x / iResolution.y, 1.0);
     
-    vec3 ro = vec3(0.0, 3.0 + 0.5 * sin(iFrequency * 6.28), -4.0);
-    vec3 ta = vec3(0.0, 0.0, 0.0);  
+    // Position et angle de la caméra
+    vec3 ro = vec3(0.0, 3.0 + sin(iTime * 0.3) * iAmplitude * 2.0, -4.0);
+    vec3 ta = vec3(0.0, 0.0, 0.0);
 
     float mouseX = iMouse.x / iResolution.x;
     float mouseY = iMouse.y / iResolution.y;
@@ -90,6 +96,8 @@ void main() {
 
     mat3 camMat = camera(ro, ta, 0.0);
     vec3 rd = normalize(camMat * vec3(uv, 1.5));
+
+    // Appliquer les rotations pour un mouvement de caméra fluide
     rd = vec3(
         cos(angleX) * rd.x + sin(angleX) * rd.z,
         rd.y,
@@ -101,18 +109,34 @@ void main() {
         sin(angleY) * rd.y + cos(angleY) * rd.z
     );
 
+    // Ray Marching
     float t = rayMarch(ro, rd);
 
     vec3 color = vec3(0.0);
     if (t > 0.0) {
         vec3 p = ro + rd * t;
         vec3 n = getNormal(p);
-        vec3 lightDir = normalize(vec3(0.5, 1.0, -0.5));
+        vec3 viewDir = normalize(ro - p);
+
+        // Direction et intensité de la lumière
+        vec3 lightPos = vec3(sin(iTime * 0.5) * 3.0, 4.0, cos(iTime * 0.5) * 3.0);
+        vec3 lightDir = normalize(lightPos - p);
+        
         float diff = max(dot(n, lightDir), 0.0);
 
-        vec3 surfaceColor = vec3(0.2 + 0.5 * n.x, 0.3 + 0.4 * n.y, 0.4 + 0.5 * n.z);
-        color = surfaceColor * diff * (0.5 + 0.5 * iAmplitude);
-        color = mix(color, vec3(1.0, 0.5, 0.0), iFrequency); // Variation de couleur
+        // Specular pour l'effet chromé
+        float specularStrength = 1.2;
+        vec3 reflectDir = reflect(-lightDir, n);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0) * specularStrength;
+
+        // Couleur avec teintes métalliques et accentuation des reflets
+        float hueShift = mod(iFrequency * 0.3 + iAmplitude * 0.5 + sin(iTime * 0.3), 1.0);
+        vec3 baseColor = vec3(0.7 * hueShift, 0.8 * iAmplitude, 0.6 - 0.3 * iFrequency);
+        vec3 chromeColor = mix(baseColor, vec3(1.0), spec);
+
+        // Ajout de l'effet de Fresnel pour accentuer les bords
+        float fresnel = fresnelEffect(viewDir, n);
+        color = mix(chromeColor, vec3(1.0), fresnel) * (diff + spec);
     }
 
     fragColor = vec4(color, 1.0);
