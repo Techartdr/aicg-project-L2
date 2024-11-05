@@ -71,13 +71,23 @@ async function getMicrophoneInput() {
   }
 }
 
+function resizeCanvasToDisplaySize(canvas) {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+}
+
 async function main() {
   const canvas = document.getElementById("canvas");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
   const gl = canvas.getContext("webgl2");
   if (!gl) alert("Could not initialize WebGL Context.");
+
+  // Redimensionner le canvas pour l'adapter à l'écran
+  resizeCanvasToDisplaySize(canvas);
+  window.addEventListener('resize', () => resizeCanvasToDisplaySize(canvas));
 
   const vertShader = createShader(gl, gl.VERTEX_SHADER, await readShader("vert"));
   const fragShader = createShader(gl, gl.FRAGMENT_SHADER, await readShader("frag"));
@@ -123,6 +133,28 @@ async function main() {
   let startTime = Date.now() / 1000;
   let mouse = { x: 0, y: 0, clicked: false };
 
+  // Gestion des événements de toucher (touch) pour les appareils mobiles
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    mouse.x = touch.clientX / canvas.width;
+    mouse.y = 1.0 - touch.clientY / canvas.height;
+  });
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    mouse.clicked = true;
+    const touch = e.touches[0];
+    mouse.x = touch.clientX / canvas.width;
+    mouse.y = 1.0 - touch.clientY / canvas.height;
+  });
+
+  canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    mouse.clicked = false;
+  });
+
+  // Gestion de la souris pour les appareils de bureau
   canvas.addEventListener('mousemove', (e) => {
     if (mouse.clicked) {
       mouse.x = e.clientX / canvas.width;
@@ -139,6 +171,8 @@ async function main() {
   function render() {
     let currentTime = Date.now() / 1000;
     let elapsedTime = currentTime - startTime;
+
+    resizeCanvasToDisplaySize(canvas);
 
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
