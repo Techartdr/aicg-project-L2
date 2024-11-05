@@ -43,14 +43,12 @@ async function getMicrophoneInput() {
     function getAmplitudeAndFrequency() {
       analyser.getByteFrequencyData(dataArray);
 
-      // Calcul de l'amplitude moyenne
       let sum = 0;
       for (let i = 0; i < dataArray.length; i++) {
         sum += dataArray[i];
       }
       const amplitude = sum / dataArray.length / 128.0;
 
-      // Calcul de la fréquence dominante
       let maxVal = 0;
       let dominantFrequency = 0;
       for (let i = 0; i < dataArray.length; i++) {
@@ -85,7 +83,6 @@ async function main() {
   const gl = canvas.getContext("webgl2");
   if (!gl) alert("Could not initialize WebGL Context.");
 
-  // Redimensionner le canvas pour l'adapter à l'écran
   resizeCanvasToDisplaySize(canvas);
   window.addEventListener('resize', () => resizeCanvasToDisplaySize(canvas));
 
@@ -132,38 +129,74 @@ async function main() {
 
   let startTime = Date.now() / 1000;
   let mouse = { x: 0, y: 0, clicked: false };
+  let pinchStartDist = 0;
+  let zoom = 1.5;
 
-  // Gestion des événements de toucher (touch) pour les appareils mobiles
-  canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    mouse.x = touch.clientX / canvas.width;
-    mouse.y = 1.0 - touch.clientY / canvas.height;
+  let isTouching = false;
+
+  function calculatePinchDistance(e) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Gestion des événements tactiles
+  canvas.addEventListener('touchstart', (e) => {
+    isTouching = true;
+    if (e.touches.length === 1) {
+      mouse.clicked = true;
+      mouse.x = e.touches[0].clientX / canvas.width;
+      mouse.y = 1.0 - e.touches[0].clientY / canvas.height;
+    } else if (e.touches.length === 2) {
+      pinchStartDist = calculatePinchDistance(e);
+    }
   });
 
-  canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    mouse.clicked = true;
-    const touch = e.touches[0];
-    mouse.x = touch.clientX / canvas.width;
-    mouse.y = 1.0 - touch.clientY / canvas.height;
+  canvas.addEventListener('touchmove', (e) => {
+    if (!isTouching) return;
+
+    if (e.touches.length === 1) {
+      const deltaX = (e.touches[0].clientX / canvas.width) - mouse.x;
+      const deltaY = (1.0 - e.touches[0].clientY / canvas.height) - mouse.y;
+      mouse.x += deltaX;
+      mouse.y += deltaY;
+    } else if (e.touches.length === 2) {
+      const pinchDist = calculatePinchDistance(e);
+      const pinchDelta = pinchDist - pinchStartDist;
+      zoom += pinchDelta * 0.005;
+      zoom = Math.min(Math.max(zoom, 1.0), 5.0);
+      pinchStartDist = pinchDist;
+    }
   });
 
   canvas.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    mouse.clicked = false;
+    if (e.touches.length === 0) {
+      mouse.clicked = false;
+      isTouching = false;
+    }
   });
 
-  // Gestion de la souris pour les appareils de bureau
+  // Gestion des événements de souris pour PC uniquement
   canvas.addEventListener('mousemove', (e) => {
-    if (mouse.clicked) {
+    if (!isTouching && mouse.clicked) {
       mouse.x = e.clientX / canvas.width;
       mouse.y = 1.0 - e.clientY / canvas.height;
     }
   });
 
-  canvas.addEventListener('mousedown', () => { mouse.clicked = true; });
-  canvas.addEventListener('mouseup', () => { mouse.clicked = false; });
+  canvas.addEventListener('mousedown', (e) => {
+    if (!isTouching) {
+      mouse.clicked = true;
+      mouse.x = e.clientX / canvas.width;
+      mouse.y = 1.0 - e.clientY / canvas.height;
+    }
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (!isTouching) {
+      mouse.clicked = false;
+    }
+  });
 
   const micInput = await getMicrophoneInput();
   if (!micInput) return;
@@ -187,7 +220,7 @@ async function main() {
     gl.uniform1f(u_amplitude, amplitude);
     gl.uniform1f(u_frequency, frequency);
 
-    gl.uniform4f(u_mouse, mouse.x * canvas.width, mouse.y * canvas.height, 0.0, 0.0);
+    gl.uniform4f(u_mouse, mouse.x * canvas.width, mouse.y * canvas.height, 0.0, zoom);
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
 
