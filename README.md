@@ -1,4 +1,4 @@
-# AICG Project : Ray Marching Project - Dynamic World
+# AICG Project : Ray Marching Project - Dynamic World - Arthur Deroo
 
 Welcome to **Ray Marching - Dynamic World**! This WebGL project provides an interactive rendering experience using ray marching, with real-time reactions to audio input from the microphone and user interactions.
 
