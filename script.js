@@ -1,3 +1,44 @@
+// Fonction pour détecter si on est sur un appareil mobile
+function isMobileDevice() {
+  return /Mobi|Android/i.test(navigator.userAgent);
+}
+
+// Fonction pour afficher les instructions adaptées
+function displayInstructions() {
+  const instructionsText = document.getElementById('instructions-text');
+
+  if (isMobileDevice()) {
+    instructionsText.innerHTML = `
+      <strong>Bienvenue !</strong><br><br>
+      <ul>
+        <li>Glissez pour faire pivoter la vue.</li>
+        <li>Pincez pour zoomer et dézoomer.</li>
+        <li>Utilisez le microphone pour animer la scène en fonction des sons.</li>
+      </ul>
+    `;
+  } else {
+    instructionsText.innerHTML = `
+      <strong>Bienvenue !</strong><br><br>
+      <ul>
+        <li>Utilisez les touches <- Q et D -> pour vous déplacer dans la scène.</li>
+        <li>Le microphone influence l'animation de la scène en fonction des sons.</li>
+      </ul>
+    `;
+  }
+
+  document.getElementById('instructions').style.display = 'flex';
+}
+
+// Fonction pour fermer la boîte d'instructions
+function closeInstructions() {
+  console.log("TESTZ7GDeiufhioqzj");
+  document.getElementById('instructions').style.display = 'none';
+}
+
+// Appeler displayInstructions lors du chargement de la page
+window.addEventListener('load', displayInstructions);
+
+
 async function readShader(id) {
   const req = await fetch(document.getElementById(id).src);
   return await req.text();
@@ -79,6 +120,8 @@ function resizeCanvasToDisplaySize(canvas) {
 }
 
 async function main() {
+  document.getElementById('close-help').addEventListener('click', () => closeInstructions());
+
   const canvas = document.getElementById("canvas");
   const gl = canvas.getContext("webgl2");
   if (!gl) alert("Could not initialize WebGL Context.");
@@ -181,10 +224,10 @@ async function main() {
 
   function updateCameraPosition() {
     const speed = 5;
-    /*const forward = {
+    const forward = {
       x: Math.sin(camera.rotation.x) * speed,
       z: Math.cos(camera.rotation.x) * speed
-    };*/
+    };
     const right = {
       x: Math.cos(camera.rotation.x) * speed,
       z: -Math.sin(camera.rotation.x) * speed

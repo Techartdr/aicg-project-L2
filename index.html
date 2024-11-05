@@ -4,12 +4,16 @@
     <title>Ray Marching - Dynamic Maze</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-        body { margin: 0; overflow: hidden; }
-        #canvas { display: block; }
-    </style>
+    <link href="style.css" rel="stylesheet" />
 </head>
 <body>
+    <div id="instructions" class="instructions-overlay">
+        <div class="instructions-content">
+          <p id="instructions-text"></p>
+          <button id="close-help">Commencer</button>
+        </div>
+    </div>
+
     <canvas id="canvas"></canvas>
 
     <script src="script.js" type="module"></script>
