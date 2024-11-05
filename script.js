@@ -28,27 +28,54 @@ function createProgram(gl, vertShader, fragShader) {
   gl.deleteProgram(program);
 }
 
+async function getMicrophoneInput() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 512;
+
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    function getAmplitudeAndFrequency() {
+      analyser.getByteFrequencyData(dataArray);
+
+      // Calcul de l'amplitude moyenne
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const amplitude = sum / dataArray.length / 128.0;
+
+      // Calcul de la fréquence dominante
+      let maxVal = 0;
+      let dominantFrequency = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        if (dataArray[i] > maxVal) {
+          maxVal = dataArray[i];
+          dominantFrequency = i;
+        }
+      }
+      const frequency = dominantFrequency / dataArray.length;
+
+      return { amplitude, frequency };
+    }
+
+    return { getAmplitudeAndFrequency };
+  } catch (error) {
+    console.error("Microphone access denied or not available.", error);
+    return null;
+  }
+}
+
 async function main() {
-  const fps = document.getElementById("fps");
-
-  const time = {
-      current_t: Date.now(),
-      dts: [1 / 60],
-      t: 0,
-
-      dt: () => time.dts[0],
-      update: () => {
-          const new_t = Date.now();
-          time.dts = [(new_t - time.current_t) / 1_000, ...time.dts].slice(0, 10);
-          time.t += time.dt();
-          time.current_t = new_t;
-
-          const dt = time.dts.reduce((a, dt) => a + dt, 0) / time.dts.length;
-          fps.innerHTML = Math.round(1 / dt, 2);
-      },
-  };
-
   const canvas = document.getElementById("canvas");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
   const gl = canvas.getContext("webgl2");
   if (!gl) alert("Could not initialize WebGL Context.");
 
@@ -59,31 +86,17 @@ async function main() {
   const a_position = gl.getAttribLocation(program, "a_position");
   const a_uv = gl.getAttribLocation(program, "a_uv");
 
-  const u_resolution = gl.getUniformLocation(program, "u_resolution");
-  const u_time = gl.getUniformLocation(program, "u_time");
-  const u_dt = gl.getUniformLocation(program, "u_dt");
-  const u_audio = gl.getUniformLocation(program, "u_audio");  // New uniform for audio data
+  const u_resolution = gl.getUniformLocation(program, "iResolution");
+  const u_time = gl.getUniformLocation(program, "iTime");
+  const u_mouse = gl.getUniformLocation(program, "iMouse");
+  const u_amplitude = gl.getUniformLocation(program, "iAmplitude");
+  const u_frequency = gl.getUniformLocation(program, "iFrequency");
 
-  // Set up audio context and analyzer
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 256;  // Can be adjusted for finer or coarser frequency data
-  const audioData = new Uint8Array(analyser.frequencyBinCount);
-
-  // Start audio capture
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-      const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
-  }).catch(error => {
-      console.error("Error accessing microphone:", error);
-  });
-
-  // Geometry data
   const data = new Float32Array([
-      -1.0, -1.0, 0.0, 0.0,
-       1.0, -1.0, 1.0, 0.0,
-       1.0,  1.0, 1.0, 1.0,
-      -1.0,  1.0, 0.0, 1.0,
+    -1.0, -1.0, 0.0, 0.0,
+    1.0, -1.0, 1.0, 0.0,
+    1.0, 1.0, 1.0, 1.0,
+    -1.0, 1.0, 0.0, 1.0,
   ]);
 
   const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
@@ -107,29 +120,46 @@ async function main() {
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
-  function loop() {
-      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-      gl.clearColor(0.0, 0.0, 0.0, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
+  let startTime = Date.now() / 1000;
+  let mouse = { x: 0, y: 0, clicked: false };
 
-      // Update audio level
-      analyser.getByteFrequencyData(audioData);
-      const audioLevel = audioData.reduce((a, b) => a + b) / audioData.length / 255;
+  canvas.addEventListener('mousemove', (e) => {
+    if (mouse.clicked) {
+      mouse.x = e.clientX / canvas.width;
+      mouse.y = 1.0 - e.clientY / canvas.height;
+    }
+  });
 
-      // Set uniform variables
-      gl.bindVertexArray(vao);
-      gl.useProgram(program);
-      gl.uniform2f(u_resolution, gl.canvas.width, gl.canvas.height);
-      gl.uniform1f(u_time, time.t);
-      gl.uniform1f(u_dt, time.dt());
-      gl.uniform1f(u_audio, audioLevel);  // Pass the audio level to the shader
-      gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
-      gl.bindVertexArray(null);
+  canvas.addEventListener('mousedown', () => { mouse.clicked = true; });
+  canvas.addEventListener('mouseup', () => { mouse.clicked = false; });
 
-      time.update();
-      requestAnimationFrame(loop);
+  const micInput = await getMicrophoneInput();
+  if (!micInput) return;
+
+  function render() {
+    let currentTime = Date.now() / 1000;
+    let elapsedTime = currentTime - startTime;
+
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    gl.bindVertexArray(vao);
+    gl.useProgram(program);
+    gl.uniform3f(u_resolution, gl.canvas.width, gl.canvas.height, 1.0);
+    gl.uniform1f(u_time, elapsedTime);
+
+    const { amplitude, frequency } = micInput.getAmplitudeAndFrequency();
+    gl.uniform1f(u_amplitude, amplitude);
+    gl.uniform1f(u_frequency, frequency);
+
+    gl.uniform4f(u_mouse, mouse.x * canvas.width, mouse.y * canvas.height, 0.0, 0.0);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+
+    requestAnimationFrame(render);
   }
-  requestAnimationFrame(loop);
+  requestAnimationFrame(render);
 }
 
 main();
